@@ -1,3 +1,4 @@
+import os
 import random
 import re
 import threading
@@ -248,7 +249,9 @@ def scrape_one_asin(asin: str):
                     f"[BLOCKED] asin={asin} cycle={cycle} status={getattr(resp,'status_code',None)}"
                 )
             if cycle < MAX_BLOCKED_CYCLES:
-                time.sleep((BLOCKED_BACKOFF_BASE ** (cycle + 1)) + random.random() * 1.2)
+                time.sleep(
+                    (BLOCKED_BACKOFF_BASE ** (cycle + 1)) + random.random() * 1.2
+                )
                 continue
             return asin, REPROCESSAR_LABEL, REPROCESSAR_LABEL, "REPROCESSAR"
 
@@ -748,6 +751,15 @@ HTML_TEMPLATE = """
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(texto).then(() => setBotaoCopiado(botao, "timerCopyAsins", resetCopiarAsins));
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = texto;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); setBotaoCopiado(botao, "timerCopyAsins", resetCopiarAsins); } catch(e) {}
+        document.body.removeChild(ta);
       }
     }
 
@@ -914,12 +926,12 @@ HTML_TEMPLATE = """
               {% for r in results %}
                 <tr
                   data-status="{{ r.status }}"
-                  class="{% if r.status == 'LFO' %}lfo-row{% elif r.status == 'Sem Oferta' %}nooffer-row{% elif r.status == 'REPROCESSAR' %}reproc-row{% endif %}"
+                  class="{% if r.status == 'LFO' %}lfo-row{% elif r.status == 'Sem Oferta' %}nooffer-row{% elif r.status == 'Reprocessar' %}reproc-row{% endif %}"
                 >
                   <td><strong>{{ r.asin }}</strong></td>
                   <td>{{ r.vendido }}</td>
                   <td>{{ r.enviado }}</td>
-                  <td class="{% if r.status == 'LFO' %}status-lfo{% elif r.status == 'Sem Oferta' %}status-nooffer{% elif r.status == 'REPROCESSAR' %}status-reproc{% else %}status-ok{% endif %}">
+                  <td class="{% if r.status == 'LFO' %}status-lfo{% elif r.status == 'Sem Oferta' %}status-nooffer{% elif r.status == 'Reprocessar' %}status-reproc{% else %}status-ok{% endif %}">
                     {{ r.status }}
                   </td>
                 </tr>
@@ -1001,7 +1013,8 @@ def index():
 
             # "Sem Oferta" real: não contar os Reprocessar
             nooffer_count = sum(
-                1 for r in full_results
+                1
+                for r in full_results
                 if r["status"] == "Sem Oferta" and r["vendido"] != REPROCESSAR_LABEL
             )
 
@@ -1029,4 +1042,7 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5008, debug=True)
+    # Local: python web.py
+    # Render/Gunicorn: usa "gunicorn web:app" e ignora esse bloco
+    port = int(os.environ.get("PORT", "5008"))
+    app.run(host="0.0.0.0", port=port, debug=True)
