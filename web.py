@@ -1018,7 +1018,12 @@ def index():
                 if r["status"] == "Sem Oferta" and r["vendido"] != REPROCESSAR_LABEL
             )
 
-            lfo_pct = (lfo_count / total * 100.0) if total else 0.0
+            base_valid = total - nooffer_count - reproc_count
+            
+            if base_valid > 0:
+                lfo_pct = (lfo_count / base_valid) * 100.0
+            else:
+                lfo_pct = 0.0
 
             summary = {
                 "total": total,
